@@ -41,12 +41,13 @@ def update_BTB(entry, pc, tpc, local_pred):
 def print_BTB(sort):
     if sort == True:
         # TODO: this is broken - fix if needed
-        sorted_btb = [val for (key, val) in sorted(btb.items())]
+        # sorted_btb = [val for (key, val) in sorted(btb.items())]
+        sorted_btb = sorted(btb)
         for entry in sorted_btb:
-            print("PC {} - targetPC {} - local_pred {}".format(
-                                                        sorted_btb[0], 
-                                                        sorted_btb[1],
-                                                        sorted_btb[2]))
+            print("{} --- PC {} - targetPC {} - local_pred {}".format(entry,
+                                                        btb[entry][0], 
+                                                        btb[entry][1],
+                                                        btb[entry][2]))
     elif sort == False:
         for entry in btb:
             print("{} --- PC {} - targetPC {} - local_pred {}".format(entry, 
@@ -140,8 +141,11 @@ for i in range(0, len(code)-2):
     if pc_plus1 - pc == 4:
         # NOT a Branch but if pc in BTB we have NOT TAKEN it
         if in_BTB(entry, hex_pc) == True:
+            # take the Target PC value from BTB instead of pc+4
+            # another solution may be to not updated the BTB! just update the prediction
+            # keep = btb[entry % 1024][1]
             pred = update_pred(prev_pred=btb[entry][2], t_nt=NOT_TAKEN)
-            update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+            # update_BTB(entry, pc=hex_pc, tpc=keep, local_pred=pred)
     else:
         # FOUND a Branch hence TAKEN
         logging.warning("FOUND a Branch for PC:{}".format(code[i]))
@@ -162,4 +166,4 @@ for i in range(0, len(code)-2):
         
 
 # printing final state of BTB
-print_BTB(sort=False)
+print_BTB(sort=True)
