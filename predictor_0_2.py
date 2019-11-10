@@ -10,6 +10,15 @@ btb = dict()
 TAKEN = 1
 NOT_TAKEN = 0
 
+stats_local = {
+    "hits": 0,
+    "misses":	0,
+	"right_pred": 0,
+	"wrong_pred": 0,
+	"wrong_address": 0,
+	"collisions": 0
+}
+
 logging.basicConfig(filename='cpts561_log.log', filemode='w', level=logging.DEBUG)
 
 parser = argparse.ArgumentParser()
@@ -38,6 +47,13 @@ def update_BTB(entry, pc, tpc, local_pred):
     # mod so we only have 1024 entries
     btb[entry % 1024] = [pc, tpc, local_pred]
 
+def print_stats(stats):
+    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{}".format(
+                                                    stats["hits"],
+                                                    stats["misses"],
+                                                    stats["right_pred"],
+                                                    stats["wrong_pred"]))
+        
 def print_BTB(sort):
     if sort == True:
         # TODO: this is broken - fix if needed
@@ -141,6 +157,9 @@ for i in range(0, len(code)-2):
     if pc_plus1 - pc == 4:
         # NOT a Branch but if pc in BTB we have NOT TAKEN it
         if in_BTB(entry, hex_pc) == True:
+            # we know that branch was not taken
+            stats_local["wrong_pred"] += 1
+
             # take the Target PC value from BTB instead of pc+4
             # another solution may be to not updated the BTB! just update the prediction
             # keep = btb[entry % 1024][1]
@@ -152,9 +171,18 @@ for i in range(0, len(code)-2):
         
         # see if PC exists in current BTB
         if in_BTB(entry, hex_pc) == True:
+            # update stats
+            stats_local["hits"] += 1
             # TODO?: add functionality to see if the target PC is same as in BTB
             # if not then update BTB target address to the new
             # THIS IS ALREADY BEING DONE as we update target PC every iteration
+
+            # see if target PC in BTB is same as the next PC
+            if btb[entry][1] == hex_pc_plus1:
+                # correct prediction!
+                stats_local["right_pred"] += 1
+            else:
+                stats_local["wrong_pred"] += 1
 
             # update prediction according to state machine
             pred = update_pred(prev_pred=btb[entry][2], t_nt=TAKEN)
@@ -163,7 +191,9 @@ for i in range(0, len(code)-2):
         else:
             # by default we'll assume Strong Taken
             update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1])
-        
+            # this is a TAKEN branch which was not in BTB hence miss
+            stats_local["misses"] += 1
 
 # printing final state of BTB
 print_BTB(sort=True)
+print_stats(stats=stats_local)
