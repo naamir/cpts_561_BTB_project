@@ -4,9 +4,12 @@ import argparse
 
 ####### I N I T #####################
 btb = dict()
-
+# for predictor state machine
 TAKEN = 1
 NOT_TAKEN = 0
+# for selector state machine
+CORRECT = 1
+WRONG = 0
 
 stats_local = {
     "hits": 0,
@@ -239,6 +242,74 @@ def update_pred(prev_pred, t_nt):
         new_pred = [0,0]
     
     return new_pred
+
+def update_correlator(prev_sel, mlocal, mglobal):
+    # implement 2-bit selector state machine
+    # input1: previously used selector i.e. either correlator (global predictor) or non-correlator (local predictor)
+    # input2: bool output of whether non-correlator (local) was CORRECT(=1) or WRONG(=0)
+    # input3: bool output of whether correlator (global) was CORRECT(=1) or WRONG(=0)
+
+    # if previous Strong Correlator
+    # all conditions to stay in Strong Correlator
+    if (((prev_sel == [0,0]) and
+        ((mlocal == WRONG and mglobal == WRONG) or # if both are WRONG (0/0)
+        (mlocal == WRONG and mglobal == CORRECT)) or # if local is WRONG and global is CORRECT (0/1)
+        (mlocal == CORRECT and mglobal == CORRECT))):  # if both are CORRECT (1/1)
+        
+        new_sel = [0,0]
+    # if previous Strong Correlator
+    # condition to move to Weak Correlator
+    elif ((prev_sel == [0,0]) and (mlocal == CORRECT and  mglobal == WRONG)):
+        new_sel = [0,1]
+
+    # if previous Weak Correlator
+    # all conditions to stay in Weak Correlator
+    elif ((prev_sel == [0,1] and
+        ((mlocal == WRONG and mglobal == WRONG) or # if both are WRONG (0/0)
+        (mlocal == CORRECT and mglobal == CORRECT)))):  # if both are CORRECT (1/1)
+        new_sel = [0,1]
+    # if previous Weak Correlator
+    # condition to move to Weak Non-Correlator
+    elif (prev_sel == [0,1] and (mlocal == CORRECT and  mglobal == WRONG)):
+        new_sel = [1,0]
+    
+    # if previous Weak Non-Correlator
+    # all conditions to stay in Weak Non-Correlator
+    elif ((prev_sel == [1,0] and
+        ((mlocal == WRONG and mglobal == WRONG) or # if both are WRONG (0/0)
+        (mlocal == CORRECT and mglobal == CORRECT)))):  # if both are CORRECT (1/1)
+        new_sel = [1,0]
+    # if previous Weak Non-Correlator
+    # condition to move to Strong Non-Correlator
+    elif (prev_sel == [1,0] and (mlocal == CORRECT and  mglobal == WRONG)):
+        new_sel = [1,1]
+        
+    # if previous Strong Non-Correlator
+    # all conditions to stay in Strong Non-Correlator
+    elif (((prev_sel == [1,1]) and
+        ((mlocal == WRONG and mglobal == WRONG) or # if both are WRONG (0/0)
+        (mlocal == CORRECT and mglobal == WRONG)) or # if local is WRONG and global is CORRECT (0/1)
+        (mlocal == CORRECT and mglobal == CORRECT))):  # if both are CORRECT (1/1)
+        
+        new_sel = [1,0]
+    # if previous Strong Non-Correlator
+    # condition to move to Weak Non-Correlator
+    elif ((prev_sel == [1,1]) and (mlocal == WRONG and  mglobal == CORRECT)):
+        new_sel = [1,0]
+
+    # now we only have transitions to Weak Correlator and then to Strong Correlator left
+
+    # if previous Weak Non-Correlator
+    # condition to move to Weak Correlator
+    elif ((prev_sel == [1,0]) and (mlocal == WRONG and  mglobal == CORRECT)):
+        new_sel = [0,1]
+
+    # if previous Weak Correlator
+    # condition to move to Strong Correlator
+    elif ((prev_sel == [0,1]) and (mlocal == WRONG and  mglobal == CORRECT)):
+        new_sel = [0,0]
+
+    return new_sel
 
 ####### M A I N #####################
 with open(args.codefile, "r") as f:
