@@ -85,11 +85,12 @@ def update_BTB(entry, **kwargs):
         btb[entry % 1024] = temp_btb
 
 def print_stats(stats):
-    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{}".format(
+    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{} -- collisions:{}".format(
                                                     stats["hits"],
                                                     stats["misses"],
                                                     stats["right_pred"],
-                                                    stats["wrong_pred"]))
+                                                    stats["wrong_pred"],
+                                                    stats["collisions"]))
         
 def print_BTB(ptype, sort=False):
     if sort == True:
@@ -115,7 +116,7 @@ def print_BTB(ptype, sort=False):
         elif ptype == "tournament":
             sorted_btb = sorted(btb)
             for entry in sorted_btb:
-                print("{} --- PC {} - targetPC {} - g00 {} - g01 {} - g01 {} - g11 {}".format(entry,
+                print("{} --- PC {} - targetPC {} - g00 {} - g01 {} - g01 {} - g11 {} - local {} - sel {}".format(entry,
                                                             btb[entry]["pc"], 
                                                             btb[entry]["tpc"],
                                                             btb[entry]["g00"],
@@ -143,7 +144,7 @@ def print_BTB(ptype, sort=False):
                                                             btb[entry]["g11"]))
         elif ptype == "tournament":
             for entry in btb:
-                print("{} --- PC {} - targetPC {} - g00 {} - g01 {} - g01 {} - g11 {}".format(entry,
+                print("{} --- PC {} - targetPC {} - g00 {} - g01 {} - g01 {} - g11 {} - local {} - sel {}".format(entry,
                                                             btb[entry]["pc"], 
                                                             btb[entry]["tpc"],
                                                             btb[entry]["g00"],
@@ -174,6 +175,13 @@ def in_BTB(entry, pc=None, verbose=True):
                                                             btb[entry]["g11"]))
                 return True
             else:
+                # we have a collision
+                if args.type == "local":
+                    stats_local["collisions"] += 1
+                elif args.type == "global":
+                    stats_global["collisions"] += 1
+                elif args.type == "tournament":
+                    stats_tournament["collisions"] += 1
                 logging.debug("PC {} not in BTB, compared to {}".format(
                                                                 pc,
                                                                 btb[entry]["pc"]))
@@ -342,16 +350,33 @@ for i in range(0, len(code)-2):
                 stats_global["wrong_pred"] += 1
                 if global_hist == [0,0]:
                     pred = update_pred(prev_pred=btb[entry]["g00"], t_nt=NOT_TAKEN)
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, g00=pred)
+                    update_BTB(entry, pc=hex_pc, g00=pred)
                 elif global_hist == [0,1]:
                     pred = update_pred(prev_pred=btb[entry]["g01"], t_nt=NOT_TAKEN)
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, g01=pred)
+                    update_BTB(entry, pc=hex_pc, g01=pred)
                 elif global_hist == [1,0]:
                     pred = update_pred(prev_pred=btb[entry]["g10"], t_nt=NOT_TAKEN)
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, g10=pred)
+                    update_BTB(entry, pc=hex_pc, g10=pred)
                 elif global_hist == [1,1]:
                     pred = update_pred(prev_pred=btb[entry]["g11"], t_nt=NOT_TAKEN)
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, g11=pred)
+                    update_BTB(entry, pc=hex_pc, g11=pred)
+                # we didn't take the branch so update history
+                update_global_hist(NOT_TAKEN)
+            elif args.type == "tournament":
+                # update both local and global predictors
+                pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
+                if global_hist == [0,0]:
+                    pred = update_pred(prev_pred=btb[entry]["g00"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, g00=pred)
+                elif global_hist == [0,1]:
+                    pred = update_pred(prev_pred=btb[entry]["g01"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, g01=pred)
+                elif global_hist == [1,0]:
+                    pred = update_pred(prev_pred=btb[entry]["g10"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, g10=pred)
+                elif global_hist == [1,1]:
+                    pred = update_pred(prev_pred=btb[entry]["g11"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, g11=pred)
                 # we didn't take the branch so update history
                 update_global_hist(NOT_TAKEN)
     else:
@@ -368,16 +393,18 @@ for i in range(0, len(code)-2):
             if args.type == "local":
                 # update stats
                 stats_local["hits"] += 1
+                # update prediction according to state machine
+                pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
                 # see if target PC in BTB is same as the next PC
                 if btb[entry]["tpc"] == hex_pc_plus1:
                     # correct prediction!
                     stats_local["right_pred"] += 1
+                    # we know the Target PC is the correct hence update prediction only
+                    update_BTB(entry, pc=hex_pc, local_pred=pred)
                 else:
                     stats_local["wrong_pred"] += 1
-                # update prediction according to state machine
-                pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
-                # we know the Target PC is the next instruction hence code[i+1]
-                update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # we know the Target PC is the next instruction hence code[i+1]
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
             elif args.type == "global":
                 # update stats
                 stats_global["hits"] += 1
