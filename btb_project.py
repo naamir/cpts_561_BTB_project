@@ -253,9 +253,9 @@ def update_pred(prev_pred, t_nt):
 
 def update_correlator(prev_sel, mlocal, mglobal):
     # implement 2-bit selector state machine
-    # input1: previously used selector i.e. either correlator (global predictor) or non-correlator (local predictor)
-    # input2: bool output of whether non-correlator (local) was CORRECT(=1) or WRONG(=0)
-    # input3: bool output of whether correlator (global) was CORRECT(=1) or WRONG(=0)
+    # input1(prev_sel): previously used selector i.e. either correlator (global predictor) or non-correlator (local predictor)
+    # input2(mlocal): whether non-correlator (local) was CORRECT(=1) or WRONG(=0)
+    # input3(mglobal): whether correlator (global) was CORRECT(=1) or WRONG(=0)
 
     # if previous Strong Correlator
     # all conditions to stay in Strong Correlator
@@ -319,11 +319,11 @@ def update_correlator(prev_sel, mlocal, mglobal):
 
     return new_sel
 
-def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None):
+def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None, stats=True):
     if gl_hist == [0,0]:
         if check == True:
             chk = check_correct(pred=btb[ent]["g00"], actualt_nt=tak_ntak, ent=ent, tarpc=tarpc)
-            if chk == CORRECT:
+            if (chk == CORRECT) and (stats == True):
                 stats_global["correct_pred"] += 1
             else:
                 stats_global["wrong_pred"] += 1
@@ -335,7 +335,7 @@ def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None):
     elif gl_hist == [0,1]:
         if check == True:
             chk = check_correct(pred=btb[ent]["g01"], actualt_nt=tak_ntak, ent=ent, tarpc=tarpc)
-            if chk == CORRECT:
+            if (chk == CORRECT) and (stats == True):
                 stats_global["correct_pred"] += 1
             else:
                 stats_global["wrong_pred"] += 1
@@ -347,7 +347,7 @@ def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None):
     elif gl_hist == [1,0]:
         if check == True:
             chk = check_correct(pred=btb[ent]["g10"], actualt_nt=tak_ntak, ent=ent, tarpc=tarpc)
-            if chk == CORRECT:
+            if (chk == CORRECT) and (stats == True):
                 stats_global["correct_pred"] += 1
             else:
                 stats_global["wrong_pred"] += 1
@@ -359,7 +359,7 @@ def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None):
     elif gl_hist == [1,1]:
         if check == True:
             chk = check_correct(pred=btb[ent]["g11"], actualt_nt=tak_ntak, ent=ent, tarpc=tarpc)
-            if chk == CORRECT:
+            if (chk == CORRECT) and (stats == True):
                 stats_global["correct_pred"] += 1
             else:
                 stats_global["wrong_pred"] += 1
@@ -374,7 +374,7 @@ def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None):
         return chk
 
 def check_correct(pred, actualt_nt, ent=None, tarpc=None):
-    if (pred[0] == TAKEN and actualt_nt == TAKEN) and tarpc is not None:
+    if pred[0] == TAKEN and actualt_nt == TAKEN:
         if btb[ent]["tpc"] == tarpc:
             return CORRECT
         else:
@@ -417,7 +417,8 @@ for i in range(0, len(code)-2):
                 global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=None, check=False)
                 # we didn't take the branch so update history
                 update_global_hist(NOT_TAKEN)
-            # elif args.type == "tournament":
+            elif args.type == "tournament":
+                stats_tournament["wrong_pred"] += 1
     else:
         # FOUND a Branch hence TAKEN
         logging.warning("FOUND a Branch for PC:{}".format(code[i]))
@@ -442,20 +443,29 @@ for i in range(0, len(code)-2):
 
             elif args.type == "global":
                 stats_global["hits"] += 1
-                
                 global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=True)
                 update_global_hist(TAKEN)
 
             elif args.type == "tournament":
                 stats_tournament["hits"] += 1
                 # check if local predictor was correct
-                check_correct(pred=btb[entry]["local_pred"], t_nt=TAKEN)
-                
+                chk_local = check_correct(pred=btb[entry]["local_pred"], actualt_nt=TAKEN)
+                # check if global predictor was correct 
+                # don't care about if tpc was correct or not at this point 
+                # because we only care if the prediction of TAKEN was correct or not 
+                if global_hist == [0,0]:
+                    chk_global = check_correct(pred=btb[entry]["g00"], actualt_nt=TAKEN)
+                elif global_hist == [0,1]:
+                    chk_global = check_correct(pred=btb[entry]["g01"], actualt_nt=TAKEN)
+                elif global_hist == [1,0]:
+                    chk_global = check_correct(pred=btb[entry]["g10"], actualt_nt=TAKEN)
+                elif global_hist == [1,1]:
+                    chk_global = check_correct(pred=btb[entry]["g11"], actualt_nt=TAKEN)
                 # if 1st bit of selector is 1 means use Non-Correlator i.e. local
                 if btb[entry]["sel"][0] == 1:
                     # update local prediction
                     pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
-                    global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=False)
+                    global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=False, stats=False)
                     # see if target PC in BTB is same as the next PC
                     # update prediction according to state machine
                     if btb[entry]["tpc"] == hex_pc_plus1:
@@ -467,25 +477,25 @@ for i in range(0, len(code)-2):
                         stats_tournament["wrong_pred"] += 1
                         # updating BTB for local prediction here
                         update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
-
+                # 0 means use Correlator i.e. global
+                elif btb[entry]["sel"][0] == 0:
                 update_global_hist(TAKEN)
 
         else: # Branch TAKEN not in BTB
             if args.type == "local":
-                # by default we'll assume Strong Taken
-                update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1])
                 # this is a TAKEN branch which was not in BTB hence miss
                 stats_local["misses"] += 1
+                # by default we'll assume Strong Taken
+                update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1])
 
             elif args.type == "global":
+                # this is a TAKEN branch which was not in BTB hence miss
+                stats_global["misses"] += 1
                 # by default we'll assume Strong Taken for all columns
                 update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1,
                             g00=[1,1], g01=[1,1], g10=[1,1], g11=[1,1])
                 # update global history
                 update_global_hist(TAKEN)
-                # this is a TAKEN branch which was not in BTB hence miss
-                stats_global["misses"] += 1
-
             elif args.type == "tournament":
                 # by default we'll assume Strong Taken for all columns
                 # and Weak Non-Correlator i.e. local
