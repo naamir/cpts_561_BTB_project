@@ -76,8 +76,6 @@ def print_stats(stats):
         
 def print_BTB(ptype, sort=False):
     if sort == True:
-        # TODO: this is broken - fix if needed
-        # sorted_btb = [val for (key, val) in sorted(btb.items())]
         if ptype == "local":
             sorted_btb = sorted(btb)
             for entry in sorted_btb:
@@ -228,7 +226,7 @@ def update_pred(prev_pred, t_nt):
     
     return new_pred
 
-def update_correlator(prev_sel, mlocal, mglobal):
+def update_selector(prev_sel, mlocal, mglobal):
     # implement 2-bit selector state machine
     # input1(prev_sel): previously used selector i.e. either correlator (global predictor) or non-correlator (local predictor)
     # input2(mlocal): whether non-correlator (local) was CORRECT(=1) or WRONG(=0)
@@ -396,6 +394,40 @@ for i in range(0, len(code)-2):
                 update_global_hist(NOT_TAKEN)
             elif args.type == "tournament":
                 stats["wrong_pred"] += 1
+                # if 1st bit of selector is 1 means use Non-Correlator i.e. local
+                if btb[entry]["sel"][0] == 1:
+                    # update local prediction
+                    chk_local = check_correct(btb[entry]["local_pred"], NOT_TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                    if chk_local == CORRECT:
+                        stats["correct_pred"] += 1
+                    else:
+                        stats["wrong_pred"] += 1
+                    # update prediction according to state machine
+                    pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # update global prediction, we'll check if our prediction is correct but don't update stats
+                    chk_global = global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=hex_pc_plus1, 
+                                                                                    check=True, 
+                                                                                    want_stats=False)
+                    # update selector, pass in if local/global prediction were correct or not
+                    new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
+                    update_BTB(entry, sel=new_sel)
+                # 0 means use Correlator i.e. global
+                elif btb[entry]["sel"][0] == 0:
+                    # update local prediction
+                    chk_local = check_correct(btb[entry]["local_pred"], NOT_TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                    # update prediction according to state machine
+                    pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # update global prediction, we'll check if our prediction is correct and we want stats
+                    chk_global = global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=hex_pc_plus1, 
+                                                                                    check=True, 
+                                                                                    want_stats=True)
+                    # update selector, pass in if local/global prediction were correct or not
+                    new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
+                    update_BTB(entry, sel=new_sel)
+                    
+                update_global_hist(NOT_TAKEN)
     else:
         # FOUND a Branch hence TAKEN
         logging.warning("FOUND a Branch for PC:{}".format(code[i]))
@@ -425,38 +457,39 @@ for i in range(0, len(code)-2):
 
             elif args.type == "tournament":
                 stats["hits"] += 1
-                # check if local predictor was correct
-                chk_local = check_correct(pred=btb[entry]["local_pred"], actualt_nt=TAKEN)
-                # check if global predictor was correct 
-                # don't care about if tpc was correct or not at this point 
-                # because we only care if the prediction of TAKEN was correct or not 
-                if global_hist == [0,0]:
-                    chk_global = check_correct(pred=btb[entry]["g00"], actualt_nt=TAKEN)
-                elif global_hist == [0,1]:
-                    chk_global = check_correct(pred=btb[entry]["g01"], actualt_nt=TAKEN)
-                elif global_hist == [1,0]:
-                    chk_global = check_correct(pred=btb[entry]["g10"], actualt_nt=TAKEN)
-                elif global_hist == [1,1]:
-                    chk_global = check_correct(pred=btb[entry]["g11"], actualt_nt=TAKEN)
                 # if 1st bit of selector is 1 means use Non-Correlator i.e. local
                 if btb[entry]["sel"][0] == 1:
                     # update local prediction
-                    pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
-                    # update global prediction
-                    global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=False, stats=False)
-                    # see if target PC in BTB is same as the next PC
-                    # update prediction according to state machine
-                    if btb[entry]["tpc"] == hex_pc_plus1:
+                    chk_local = check_correct(btb[entry]["local_pred"], TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                    if chk_local == CORRECT:
                         stats["correct_pred"] += 1
-                        # updating BTB for local prediction here
-                        update_BTB(entry, pc=hex_pc, local_pred=pred)
-                        update_correlator(btb[entry]["sel"])
                     else:
                         stats["wrong_pred"] += 1
-                        # updating BTB for local prediction here
-                        update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # update prediction according to state machine
+                    pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # update global prediction, we'll check if our prediction is correct but don't update stats
+                    chk_global = global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, 
+                                                                                    check=True, 
+                                                                                    want_stats=False)
+                    # update selector, pass in if local/global prediction were correct or not
+                    new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
+                    update_BTB(entry, sel=new_sel)
                 # 0 means use Correlator i.e. global
-                # elif btb[entry]["sel"][0] == 0:
+                elif btb[entry]["sel"][0] == 0:
+                    # update local prediction
+                    chk_local = check_correct(btb[entry]["local_pred"], TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                    # update prediction according to state machine
+                    pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=TAKEN)
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
+                    # update global prediction, we'll check if our prediction is correct and we want stats
+                    chk_global = global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, 
+                                                                                    check=True, 
+                                                                                    want_stats=True)
+                    # update selector, pass in if local/global prediction were correct or not
+                    new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
+                    update_BTB(entry, sel=new_sel)
+
                 update_global_hist(TAKEN)
 
         else: # Branch TAKEN not in BTB
