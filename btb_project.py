@@ -398,10 +398,6 @@ for i in range(0, len(code)-2):
                 if btb[entry]["sel"][0] == 1:
                     # update local prediction
                     chk_local = check_correct(btb[entry]["local_pred"], NOT_TAKEN, ent=entry, tarpc=hex_pc_plus1)
-                    if chk_local == CORRECT:
-                        stats["correct_pred"] += 1
-                    else:
-                        stats["wrong_pred"] += 1
                     # update prediction according to state machine
                     pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
                     update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
@@ -422,7 +418,7 @@ for i in range(0, len(code)-2):
                     # update global prediction, we'll check if our prediction is correct and we want stats
                     chk_global = global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=hex_pc_plus1, 
                                                                                     check=True, 
-                                                                                    want_stats=True)
+                                                                                    want_stats=False)
                     # update selector, pass in if local/global prediction were correct or not
                     new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
                     update_BTB(entry, sel=new_sel)
