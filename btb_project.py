@@ -56,6 +56,9 @@ def update_BTB(entry, **kwargs):
     # btb--> {entry : {pc, tpc, local_pred, g00, g01, g10, g11, sel} ....}
     if in_BTB(entry, verbose=False) == True:
         for key, val in kwargs.items():
+            if key == "pc":
+                # we are updating the BTB hence we should check if there is a collision
+                check_collision(entry, val)
             btb[entry][key] = val
     else:
         # create new entry in BTB
@@ -67,12 +70,15 @@ def update_BTB(entry, **kwargs):
         btb[entry % 1024] = temp_btb
 
 def print_stats(stats):
-    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{} -- collisions:{}".format(
+    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{} -- collisions:{}\n".format(
                                                     stats["hits"],
                                                     stats["misses"],
                                                     stats["correct_pred"],
                                                     stats["wrong_pred"],
                                                     stats["collisions"]))
+    hit_rate = stats["hits"] / (stats["hits"] + stats["misses"]) * 100
+    pred_accuracy = stats["correct_pred"] / stats["hits"] * 100
+    print("hit rate:{} -- prediction accuracy:{}".format(hit_rate, pred_accuracy))
         
 def print_BTB(ptype, sort=False):
     if sort == True:
@@ -154,12 +160,12 @@ def in_BTB(entry, pc=None, verbose=True):
                                                             btb[entry]["g10"],
                                                             btb[entry]["g11"]))
                 return True
-            else:
-                # we have a collision
-                stats["collisions"] += 1
-                logging.debug("PC {} not in BTB, compared to {}".format(
-                                                                pc,
-                                                                btb[entry]["pc"]))
+            # else:
+            #     # we have a collision
+            #     stats["collisions"] += 1
+            #     logging.debug("PC {} not in BTB, compared to {}".format(
+            #                                                     pc,
+            #                                                     btb[entry]["pc"]))
                 return False
         else:
             logging.debug("PC {} not in BTB".format(pc))
@@ -348,6 +354,12 @@ def global_predictor(ent, h_pc, gl_hist, tak_ntak, tarpc=None, check=None, want_
     if check == True:
         return chk
 
+def check_collision(ent, curpc):
+    if ent in btb:
+        if curpc != btb[ent]["pc"]:
+            # found a collision
+            stats["collisions"] += 1
+
 def check_correct(pred, actualt_nt, ent=None, tarpc=None):
     if pred[0] == TAKEN and actualt_nt == TAKEN:
         if btb[ent]["tpc"] == tarpc:
@@ -378,18 +390,21 @@ for i in range(0, len(code)-2):
 
     if pc_plus1 - pc == 4:
         # NOT a Branch but if pc in BTB we have NOT TAKEN it
-        if in_BTB(entry, pc=hex_pc) == True: 
-            # don't update BTB! just update the prediction
+        if in_BTB(entry, pc=hex_pc) == True:
+            stats["hits"] += 1
             if args.type == "local":
                 # we know that branch was not taken
-                stats["wrong_pred"] += 1
+                chk = check_correct(btb[entry]["local_pred"], NOT_TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                if chk == CORRECT:
+                    stats["correct_pred"] += 1
+                else:
+                    stats["wrong_pred"] += 1
                 pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
                 update_BTB(entry, pc=hex_pc, local_pred=pred)
             elif args.type == "global":
                 # we know that branch was not taken
-                stats["wrong_pred"] += 1
-                # we know it's a WRONG prediction hence don't check plus don't update target pc
-                global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=None, check=False)
+                # don't update target pc
+                global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=None, check=True)
                 # we didn't take the branch so update history
                 update_global_hist(NOT_TAKEN)
             elif args.type == "tournament":
@@ -430,13 +445,13 @@ for i in range(0, len(code)-2):
         
         # see if PC exists in current BTB
         if in_BTB(entry, pc=hex_pc) == True:
+            stats["hits"] += 1
             # TODO?: add functionality to see if the target PC is same as in BTB
             # if not then update BTB target address to the new
             # THIS IS ALREADY BEING DONE as we update target PC every iteration
             # NOTE: the arguments provided here become the table columns in BTB
             # e.g. g00 is column in BTB once we update BTB with it
             if args.type == "local":
-                stats["hits"] += 1
                 chk = check_correct(btb[entry]["local_pred"], TAKEN, ent=entry, tarpc=hex_pc_plus1)
                 if chk == CORRECT:
                     stats["correct_pred"] += 1
@@ -447,12 +462,10 @@ for i in range(0, len(code)-2):
                 update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
 
             elif args.type == "global":
-                stats["hits"] += 1
                 global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=True)
                 update_global_hist(TAKEN)
 
             elif args.type == "tournament":
-                stats["hits"] += 1
                 # if 1st bit of selector is 1 means use Non-Correlator i.e. local
                 if btb[entry]["sel"][0] == 1:
                     # update local prediction
