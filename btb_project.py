@@ -379,17 +379,22 @@ for i in range(0, len(code)-2):
     if pc_plus1 - pc == 4:
         # NOT a Branch but if pc in BTB we have NOT TAKEN it
         if in_BTB(entry, pc=hex_pc) == True: 
-            # don't update BTB! just update the prediction
+            stats["hits"] += 1
             if args.type == "local":
                 # we know that branch was not taken
-                stats["wrong_pred"] += 1
+                # stats["wrong_pred"] += 1
+                chk = check_correct(btb[entry]["local_pred"], NOT_TAKEN, ent=entry, tarpc=hex_pc_plus1)
+                if chk == CORRECT:
+                    stats["correct_pred"] += 1
+                else:
+                    stats["wrong_pred"] += 1
                 pred = update_pred(prev_pred=btb[entry]["local_pred"], t_nt=NOT_TAKEN)
                 update_BTB(entry, pc=hex_pc, local_pred=pred)
             elif args.type == "global":
                 # we know that branch was not taken
-                stats["wrong_pred"] += 1
+                # stats["wrong_pred"] += 1
                 # we know it's a WRONG prediction hence don't check plus don't update target pc
-                global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=None, check=False)
+                global_predictor(entry, hex_pc, global_hist, NOT_TAKEN, tarpc=None, check=True)
                 # we didn't take the branch so update history
                 update_global_hist(NOT_TAKEN)
             elif args.type == "tournament":
@@ -430,13 +435,13 @@ for i in range(0, len(code)-2):
         
         # see if PC exists in current BTB
         if in_BTB(entry, pc=hex_pc) == True:
+            stats["hits"] += 1
             # TODO?: add functionality to see if the target PC is same as in BTB
             # if not then update BTB target address to the new
             # THIS IS ALREADY BEING DONE as we update target PC every iteration
             # NOTE: the arguments provided here become the table columns in BTB
             # e.g. g00 is column in BTB once we update BTB with it
             if args.type == "local":
-                stats["hits"] += 1
                 chk = check_correct(btb[entry]["local_pred"], TAKEN, ent=entry, tarpc=hex_pc_plus1)
                 if chk == CORRECT:
                     stats["correct_pred"] += 1
@@ -447,12 +452,10 @@ for i in range(0, len(code)-2):
                 update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=pred)
 
             elif args.type == "global":
-                stats["hits"] += 1
                 global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1, check=True)
                 update_global_hist(TAKEN)
 
             elif args.type == "tournament":
-                stats["hits"] += 1
                 # if 1st bit of selector is 1 means use Non-Correlator i.e. local
                 if btb[entry]["sel"][0] == 1:
                     # update local prediction
