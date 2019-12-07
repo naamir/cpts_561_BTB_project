@@ -541,13 +541,13 @@ for i in range(0, len(code)-2):
                 update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1],
                             g00=[1,1], g01=[1,1], g10=[1,1], g11=[1,1],
                             sel=[1,0])
-                # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1],
+                # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,0],
                 #             g00=[1,0], g01=[1,0], g10=[1,0], g11=[1,0],
                 #             sel=[1,0])
                 # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1],
                 #             g00=[1,1], g01=[1,1], g10=[1,1], g11=[1,1],
                 #             sel=[0,1])
-                # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1],
+                # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,0],
                 #             g00=[1,0], g01=[1,0], g10=[1,0], g11=[1,0],
                 #             sel=[0,1])
 
