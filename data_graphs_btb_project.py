@@ -9,3 +9,9 @@ abs_path_Spice_FP = "C:\\Users\\nofal\\OneDrive\\Documents\\git\\cpts_561_BTB_pr
 
 btb_main("local", abs_path_sample_trace)
 print_stats(stats)
+
+btb_main("global", abs_path_sample_trace)
+print_stats(stats)
+
+btb_main("tournament", abs_path_sample_trace)
+print_stats(stats)

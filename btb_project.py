@@ -371,6 +371,7 @@ def check_correct(pred, actualt_nt, ent=None, tarpc=None):
 
 ####### M A I N #####################
 def btb_main(m_type, m_codefile):
+    btb.clear()
     with open(m_codefile, "r") as f:
         code = f.readlines()
 
