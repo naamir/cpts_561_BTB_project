@@ -9,7 +9,8 @@ abs_path_sample_trace = "C:\\Users\\nofal\\OneDrive\\Documents\\git\\cpts_561_BT
 abs_path_Li_int = "C:\\Users\\nofal\\OneDrive\\Documents\\git\\cpts_561_BTB_project\\benchmark\\Li_int.txt"
 abs_path_Spice_FP = "C:\\Users\\nofal\\OneDrive\\Documents\\git\\cpts_561_BTB_project\\benchmark\\Spice_FP.txt"
 
-print_wrng_add_flag = False
+# change these flags as necessary
+print_wrng_add_flag = True
 print_Li_int_flag = False
 print_Spice_FP_flag = True
 # print("FILE:  Sample Trace\nlocal predictor\nInitial: STRONG TAKEN")
