@@ -162,7 +162,6 @@ def in_BTB(entry, pc=None, verbose=True):
             #     logging.debug("PC {} not in BTB, compared to {}".format(
             #                                                     pc,
             #                                                     btb[entry]["pc"]))
-                return False
         else:
             logging.debug("PC {} not in BTB".format(pc))
             return False
