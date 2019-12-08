@@ -552,11 +552,6 @@ def btb_main(m_type, m_codefile):
                     # this is a TAKEN branch which was not in BTB hence miss
                     stats["misses"] += 1
 
-    # printing final state of BTB
-    # pass in "local", "global" or "tournament"
-    print_BTB(m_type, sort=True)
-    print_stats(stats=stats)
-
 if __name__ == "__main__": 
     print("Executed when invoked directly")
     parser = argparse.ArgumentParser()
@@ -567,3 +562,8 @@ if __name__ == "__main__":
     report_type = args.type
     report_codefile = args.codefile
     btb_main(report_type, report_codefile)
+
+    # printing final state of BTB
+    # pass in "local", "global" or "tournament"
+    print_BTB(report_type, sort=True)
+    print_stats(stats=stats)
