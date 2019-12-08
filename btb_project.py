@@ -11,21 +11,32 @@ NOT_TAKEN = 0
 CORRECT = 1
 WRONG = 0
 
+wrong_addresses = dict()
+
 stats = {
     "hits": 0,
     "misses":	0,
 	"correct_pred": 0,
 	"wrong_pred": 0,
-	"wrong_address": 0,
 	"collisions": 0
 }
 m_type = 0
 m_codefile = 0
 global_hist = [0,0]
 
-logging.basicConfig(filename='cpts561_log.log', filemode='w', level=logging.DEBUG)
+# logging only for ERROR to make it faster
+logging.basicConfig(filename='cpts561_log.log', filemode='w', level=logging.ERROR)
 
 ####### F U N C T I O N S #####################
+def flush_data():
+    btb.clear()
+    wrong_addresses.clear()
+    stats["hits"] = 0
+    stats["misses"] = 0
+    stats["correct_pred"] = 0
+    stats["collisions"] = 0
+
+
 def get_entry_BTB(code):
     ''' assume input as hex'''
     # the BTB will be a dictionary with index determined from last 3 words of PC
@@ -65,8 +76,13 @@ def update_BTB(entry, **kwargs):
 
         btb[entry % 1024] = temp_btb
 
+def print_wrong_addresses(wrong_addrs):
+    print("actual target pc     wrong BTB target pc")
+    for key, val in wrong_addrs.items():
+        print(key, "            ", val)
+    
 def print_stats(stats):
-    print("hits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{} -- collisions:{}\n".format(
+    print("\nhits:{} -- misses:{} -- right predictions:{} -- wrong predictions:{} -- collisions:{}".format(
                                                     stats["hits"],
                                                     stats["misses"],
                                                     stats["correct_pred"],
@@ -156,12 +172,6 @@ def in_BTB(entry, pc=None, verbose=True):
                                                             btb[entry]["g10"],
                                                             btb[entry]["g11"]))
                 return True
-            # else:
-            #     # we have a collision
-            #     stats["collisions"] += 1
-            #     logging.debug("PC {} not in BTB, compared to {}".format(
-            #                                                     pc,
-            #                                                     btb[entry]["pc"]))
         else:
             logging.debug("PC {} not in BTB".format(pc))
             return False
@@ -368,9 +378,14 @@ def check_correct(pred, actualt_nt, ent=None, tarpc=None):
     elif pred[0] == NOT_TAKEN and actualt_nt == NOT_TAKEN:
         return CORRECT
 
+def check_wrong_address(ent, currpc, actualtpc):
+    tpc_in_btb = btb[ent]["tpc"]
+    if  (actualtpc != tpc_in_btb) and (actualtpc != currpc+4):
+        wrong_addresses[actualtpc] = tpc_in_btb
+
 ####### M A I N #####################
 def btb_main(m_type, m_codefile):
-    btb.clear()
+    flush_data()
     with open(m_codefile, "r") as f:
         code = f.readlines()
 
@@ -457,6 +472,7 @@ def btb_main(m_type, m_codefile):
                 # THIS IS ALREADY BEING DONE as we update target PC every iteration
                 # NOTE: the arguments provided here become the table columns in BTB
                 # e.g. g00 is column in BTB once we update BTB with it
+                check_wrong_address(entry, pc, pc_plus1)
                 if m_type == "local":
                     chk = check_correct(btb[entry]["local_pred"], TAKEN, ent=entry, tarpc=hex_pc_plus1)
                     if chk == CORRECT:
@@ -487,9 +503,6 @@ def btb_main(m_type, m_codefile):
                         chk_global = global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1,
                                                                                         check=True,
                                                                                         want_stats=False)
-                        # chk_global = CORRECT
-                        # stats["wrong_pred"] += 1
-
                         # update selector, pass in if local/global prediction were correct or not
                         new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
                         update_BTB(entry, sel=new_sel)
@@ -505,8 +518,6 @@ def btb_main(m_type, m_codefile):
                         chk_global = global_predictor(entry, hex_pc, global_hist, TAKEN, tarpc=hex_pc_plus1,
                                                                                         check=True,
                                                                                         want_stats=True)
-                        # chk_global = CORRECT
-                        # stats["wrong_pred"] += 1
                         # update selector, pass in if local/global prediction were correct or not
                         new_sel = update_selector(btb[entry]["sel"], chk_local, chk_global)
                         update_BTB(entry, sel=new_sel)
@@ -567,3 +578,4 @@ if __name__ == "__main__":
     # pass in "local", "global" or "tournament"
     print_BTB(report_type, sort=True)
     print_stats(stats=stats)
+    print_wrong_addresses(wrong_addresses)
