@@ -384,7 +384,7 @@ def check_wrong_address(ent, currpc, actualtpc):
         wrong_addresses[actualtpc] = tpc_in_btb
 
 ####### M A I N #####################
-def btb_main(m_type, m_codefile):
+def btb_main(m_type, m_codefile, init_local=[1,1], init_global=[1,1], init_selector=[1,0]):
     flush_data()
     with open(m_codefile, "r") as f:
         code = f.readlines()
@@ -529,7 +529,7 @@ def btb_main(m_type, m_codefile):
                     # this is a TAKEN branch which was not in BTB hence miss
                     stats["misses"] += 1
                     # by default we'll assume Strong Taken
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1])
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=init_local)
                     # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1, 0])
 
                 elif m_type == "global":
@@ -537,7 +537,7 @@ def btb_main(m_type, m_codefile):
                     stats["misses"] += 1
                     # by default we'll assume Strong Taken for all columns
                     update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1,
-                                g00=[1,1], g01=[1,1], g10=[1,1], g11=[1,1])
+                                g00=init_global, g01=init_global, g10=init_global, g11=init_global)
                     # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1,
                     #            g00=[1, 0], g01=[1, 0], g10=[1, 0], g11=[1, 0])
 
@@ -546,9 +546,9 @@ def btb_main(m_type, m_codefile):
                 elif m_type == "tournament":
                     # by default we'll assume Strong Taken for all columns
                     # and Weak Non-Correlator i.e. local
-                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,1],
-                                g00=[1,1], g01=[1,1], g10=[1,1], g11=[1,1],
-                                sel=[1,0])
+                    update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=init_local,
+                                g00=init_global, g01=init_global, g10=init_global, g11=init_global,
+                                sel=init_selector)
                     # update_BTB(entry, pc=hex_pc, tpc=hex_pc_plus1, local_pred=[1,0],
                     #             g00=[1,0], g01=[1,0], g10=[1,0], g11=[1,0],
                     #             sel=[1,0])
@@ -572,6 +572,8 @@ if __name__ == "__main__":
 
     report_type = args.type
     report_codefile = args.codefile
+    # by default we'll assume Strong Taken for all columns
+    # and Weak Non-Correlator i.e. start with local predictor
     btb_main(report_type, report_codefile)
 
     # printing final state of BTB
