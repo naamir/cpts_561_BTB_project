@@ -380,8 +380,8 @@ def check_correct(pred, actualt_nt, ent=None, tarpc=None):
 
 def check_wrong_address(ent, currpc, actualtpc):
     tpc_in_btb = btb[ent]["tpc"]
-    if  (actualtpc != tpc_in_btb) and (actualtpc != currpc+4):
-        wrong_addresses[actualtpc] = tpc_in_btb
+    if  ((actualtpc != int(tpc_in_btb, 16)) and (actualtpc != currpc+4)):
+        wrong_addresses[hex(actualtpc)] = tpc_in_btb
 
 ####### M A I N #####################
 def btb_main(m_type, m_codefile, init_local=[1,1], init_global=[1,1], init_selector=[1,0]):
